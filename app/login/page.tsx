@@ -1,74 +1,242 @@
 'use client';
-
-import { useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faFacebookF, faGoogle, faLinkedinIn } from '@fortawesome/free-brands-svg-icons';
+import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
+import { config } from '@fortawesome/fontawesome-svg-core';
+import '@fortawesome/fontawesome-svg-core/styles.css';
 import { useRouter } from 'next/navigation';
 
+config.autoAddCss = false;
+
+const Player = dynamic(() => import('@lottiefiles/react-lottie-player').then(mod => mod.Player), {
+  ssr: false,
+});
+
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const [form, setForm] = useState({
+    email: '',
+    password: '',
+  });
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState('');
+  const [showAnimation, setShowAnimation] = useState(false); // Control animation visibility
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setForm((prevForm) => ({
+      ...prevForm,
+      [name]: value,
+    }));
+  };
+
+  const togglePasswordVisibility = () => {
+    setPasswordVisible(!passwordVisible);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    const response = await fetch('/api/user/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const data = await response.json();
-    if (response.ok) {
-      // Store token in cookies or localStorage (depending on your preference)
-      document.cookie = `token=${data.token}; path=/`;
-      // Redirect to chats or homepage
-      router.push('/chats');
-    } else {
-      console.error('Login failed', data);
+    setIsSubmitting(true);
+  
+    try {
+      const response = await fetch('http://localhost:3001/user/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: form.email,
+          password: form.password,
+        }),
+      });
+  
+      const data = await response.json();
+  
+      if (response.ok) {
+        // Save the token in cookies or localStorage
+        document.cookie = `token=${data.token}; path=/`;  // Ensure the token is saved
+        setShowAnimation(true);
+        setMessage('Login successful! Redirecting to chats...');
+        setTimeout(() => {
+          setShowAnimation(false); // Hide the animation
+          router.push('/chats'); // Redirect to the chats page after animation
+        }, 3000); // 3 seconds delay for animation
+      } else {
+        setMessage(data.message || 'Login failed. Please try again.');
+        setShowAnimation(true);
+        setTimeout(() => {
+          setShowAnimation(false); // Hide animation but stay on login page
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Error during login:', error);
+      setMessage('An error occurred. Please try again.');
+      setShowAnimation(true);
+      setTimeout(() => {
+        setShowAnimation(false);
+      }, 3000);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  if (!isMounted) {
+    return null; // Prevents running the component on the server
+  }
+
   return (
-    <div className="flex h-screen justify-center items-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md max-w-sm w-full">
-        <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
-        <form onSubmit={handleLogin}>
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              className="w-full p-2 border border-gray-300 rounded"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="mb-6">
-            <label className="block text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              className="w-full p-2 border border-gray-300 rounded"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
-          >
-            Login
+    <div className="min-h-screen flex flex-col justify-between items-center bg-white font-sans">
+      {/* Logo on the top left */}
+      <motion.div className="absolute top-5 left-5" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 1 } }}>
+        <Link href="/">
+            <Image src="/assets/images/logo.png" alt="VoxAi SQL Logo" width={150} height={150} className="cursor-pointer" />
+        </Link>
+      </motion.div>
+
+      {/* Register Button on the top right */}
+      <motion.div className="absolute top-5 right-5" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 1 } }}>
+        <Link href="/register">
+          <button className="bg-transparent border-2 border-[#5942E9] text-[#5942E9] px-4 py-2 rounded-lg hover:bg-[#5942E9] hover:text-white transition-all">
+            Register
           </button>
-        </form>
-        <p className="mt-4 text-sm text-center">
-          Don't have an account?{' '}
-          <a href="/register" className="text-blue-500 hover:text-blue-600">
-            Sign up
-          </a>
-        </p>
+        </Link>
+      </motion.div>
+
+      {/* Main Content with form and animation */}
+      <div className="flex justify-between items-start max-w-7xl w-full px-20 mt-24">
+        {/* Login Form in rounded div */}
+        <motion.div
+          className="w-1/2 bg-white rounded-lg p-10 shadow-lg"
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0, transition: { duration: 1 } }}
+        >
+          {/* Header with Login to your account & Login with */}
+          <div className="flex justify-between items-center mb-6">
+            <span className="text-xl text-[#5942E9]">Login to your account</span>
+            <div className="text-center">
+              <span className="block mb-2 text-gray-600">Login with</span>
+              <div className="flex space-x-4">
+                <Link href="#">
+                  <FontAwesomeIcon icon={faFacebookF} size="2x" style={{ color: '#3b5998' }} />
+                </Link>
+                <Link href="#">
+                  <FontAwesomeIcon icon={faGoogle} size="2x" style={{ color: '#db4437' }} />
+                </Link>
+                <Link href="#">
+                  <FontAwesomeIcon icon={faLinkedinIn} size="2x" style={{ color: '#0077b5' }} />
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Login Form */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <motion.div
+              className="form-group"
+              whileHover={{ scale: 1.05 }}
+            >
+              <input
+                type="email"
+                name="email"
+                value={form.email}
+                onChange={handleInputChange}
+                placeholder="Your Email"
+                className="w-full px-6 py-3 border border-gray-300 rounded-md focus:border-[#5942E9] text-[#5942E9] text-lg"
+                required
+              />
+            </motion.div>
+
+            <motion.div
+              className="form-group relative"
+              whileHover={{ scale: 1.05 }}
+            >
+              <input
+                type={passwordVisible ? "text" : "password"}
+                name="password"
+                value={form.password}
+                onChange={handleInputChange}
+                placeholder="Password"
+                className="w-full px-6 py-3 border border-gray-300 rounded-md focus:border-[#5942E9] text-[#5942E9] text-lg"
+                required
+              />
+              <button type="button" className="absolute right-4 top-3" onClick={togglePasswordVisibility}>
+                <FontAwesomeIcon icon={passwordVisible ? faEyeSlash : faEye} size="lg" />
+              </button>
+            </motion.div>
+
+            {/* Right aligned Login Button */}
+            <div className="flex justify-end">
+              <motion.button
+                type="submit"
+                className="w-28 bg-[#5942E9] text-white py-2 rounded-lg hover:bg-blue-700 transition-all"
+                whileHover={{ scale: 1.05 }}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Logging in...' : 'Log in'}
+              </motion.button>
+            </div>
+          </form>
+        </motion.div>
+
+        {/* Right Side - Lottie Animation */}
+        <motion.div
+          className="w-1/2 flex justify-end items-start mt-10"
+          initial={{ opacity: 0, x: 100 }}
+          animate={{ opacity: 1, x: 0, transition: { duration: 1 } }}
+        >
+          <Player
+            autoplay
+            loop
+            src="/assets/animations/login-animation.json" // Replace with your Lottie animation path for login
+            style={{ height: '450px', width: '450px' }}
+          />
+        </motion.div>
       </div>
+
+      {/* Lottie Success Animation */}
+      {showAnimation && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-8 rounded-lg shadow-lg">
+            <Player
+              autoplay
+              loop={false}
+              src="/assets/animations/successlogin.json"  // Replace with the path to your success Lottie animation
+              style={{ height: '200px', width: '200px' }}
+            />
+            <p className="text-center mt-4 text-lg">{message}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <motion.div
+        className="text-center mt-6 bg-white py-4 w-full"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1, transition: { duration: 1 } }}
+      >
+        <p className="text-gray-500 text-sm">
+          &copy; Copyright VoxAi SQL 2024 |{' '}
+          <Link href="/privacy" className="underline">
+            Privacy Policy
+          </Link>{' '}
+          |{' '}
+          <Link href="/help" className="underline">
+            Help
+          </Link>
+        </p>
+      </motion.div>
     </div>
   );
 }

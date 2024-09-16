@@ -1,15 +1,23 @@
-'use client';
-import { useRouter } from 'next/navigation'; // Updated import from next/navigation
+'use client'; // Mark this component as a Client Component
+
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+
+// Utility function to get cookie by name
+function getCookie(name: string) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift();
+}
 
 export default function ChatsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = document.cookie.includes('token'); // Simple check for token
+    const token = getCookie('token'); // Get the token from cookies
 
     if (!token) {
-      router.push('/login'); // Redirect to login if not authenticated
+      router.push('/login'); // Redirect to login if token is not found
     }
   }, [router]);
 
@@ -20,9 +28,8 @@ export default function ChatsPage() {
     e.preventDefault();
     if (input.trim() === '') return;
 
-    // Add new message to the chat
     setMessages([...messages, input]);
-    setInput(''); // Clear input field
+    setInput('');
   };
 
   return (

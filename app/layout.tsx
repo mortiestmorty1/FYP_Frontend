@@ -1,23 +1,16 @@
-'use client'; // This makes the layout a Client Component
+// app/layout.tsx
+import './globals.css'; // Ensure you have global styles imported
 
-import './globals.css';
-import { usePathname } from 'next/navigation';
-import Navbar from './components/Navbar';
+export const metadata = {
+  title: 'VoxAi SQL',
+  description: 'A platform for voice-to-SQL translation',
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-
-  // Define paths that should NOT show the navbar (e.g., login, register)
-  const noNavPaths = ['/login', '/register'];
-
   return (
     <html lang="en">
       <body>
-        <div className="container mx-auto px-4">
-          {/* Conditionally render the navbar based on the current route */}
-          {!noNavPaths.includes(pathname) && <Navbar />}
-          <main>{children}</main>
-        </div>
+        {children} {/* Render the child components here */}
       </body>
     </html>
   );
