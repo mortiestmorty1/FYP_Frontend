@@ -1,3 +1,4 @@
+// CollapsibleComponent.tsx
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
@@ -19,12 +20,6 @@ const CollapsibleComponent: React.FC<CollapsibleComponentProps> = ({ title, chil
 
   return (
     <div className="relative">
-      <button
-        onClick={handleToggleCollapse}
-        className="absolute -right-5 top-5 bg-white p-2 rounded-full shadow-lg z-10"
-      >
-        <FontAwesomeIcon icon={isCollapsed ? faChevronRight : faChevronLeft} />
-      </button>
       {!isCollapsed && (
         <div className="p-4 bg-white rounded-lg shadow-md">
           <h3 className="font-bold mb-4">{title}</h3>
