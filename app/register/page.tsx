@@ -73,9 +73,9 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-
+  
     setIsSubmitting(true);
-
+  
     try {
       const response = await fetch('http://localhost:3001/user/signup', {
         method: 'POST',
@@ -88,28 +88,26 @@ export default function RegisterPage() {
           password: form.password,
         }),
       });
-
+  
       const data = await response.json();
-
+      console.log(data); // Log the response data for debugging
+  
       if (response.ok) {
-        // Show Lottie success animation
         setIsSuccess(true);
         setMessage('Registration successful!');
         setShowAnimation(true);
-        
-        // Delay redirection to let animation play
+  
         setTimeout(() => {
-          setShowAnimation(false);  // Hide animation before redirecting
+          setShowAnimation(false);
           router.push('/login');
-        }, 3000);  // 3 seconds to play the animation
+        }, 3000);
       } else {
         setIsSuccess(false);
         setMessage(data.message || 'Registration failed. Please try again.');
         setShowAnimation(true);
         
-        // Keep the modal up for 3 seconds on failure as well
         setTimeout(() => {
-          setShowAnimation(false);  // Hide animation but stay on register page
+          setShowAnimation(false);
         }, 3000);
       }
     } catch (error) {
@@ -125,6 +123,7 @@ export default function RegisterPage() {
       setIsSubmitting(false);
     }
   };
+  
 
   return (
     <div className="min-h-screen flex flex-col justify-between items-center bg-white font-sans">

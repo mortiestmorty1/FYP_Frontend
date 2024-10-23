@@ -32,7 +32,7 @@ export default function LoginPage() {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
-  const [showAnimation, setShowAnimation] = useState(false); // Control animation visibility
+  const [showAnimation, setShowAnimation] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -65,19 +65,19 @@ export default function LoginPage() {
       const data = await response.json();
   
       if (response.ok) {
-        // Save the token in cookies or localStorage
-        document.cookie = `token=${data.token}; path=/`;  // Ensure the token is saved
+        // Save the token in localStorage
+        localStorage.setItem('token', data.token); // Store the token in localStorage
         setShowAnimation(true);
         setMessage('Login successful! Redirecting to chats...');
         setTimeout(() => {
-          setShowAnimation(false); // Hide the animation
+          setShowAnimation(false); 
           router.push('/chats'); // Redirect to the chats page after animation
         }, 3000); // 3 seconds delay for animation
       } else {
         setMessage(data.message || 'Login failed. Please try again.');
         setShowAnimation(true);
         setTimeout(() => {
-          setShowAnimation(false); // Hide animation but stay on login page
+          setShowAnimation(false); 
         }, 3000);
       }
     } catch (error) {
@@ -93,19 +93,19 @@ export default function LoginPage() {
   };
 
   if (!isMounted) {
-    return null; // Prevents running the component on the server
+    return null; 
   }
 
   return (
     <div className="min-h-screen flex flex-col justify-between items-center bg-white font-sans">
-      {/* Logo on the top left */}
+      {/* Logo */}
       <motion.div className="absolute top-5 left-5" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 1 } }}>
         <Link href="/">
             <Image src="/assets/images/logo.png" alt="VoxAi SQL Logo" width={150} height={150} className="cursor-pointer" />
         </Link>
       </motion.div>
 
-      {/* Register Button on the top right */}
+      {/* Register Button */}
       <motion.div className="absolute top-5 right-5" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 1 } }}>
         <Link href="/register">
           <button className="bg-transparent border-2 border-[#5942E9] text-[#5942E9] px-4 py-2 rounded-lg hover:bg-[#5942E9] hover:text-white transition-all">
@@ -114,15 +114,14 @@ export default function LoginPage() {
         </Link>
       </motion.div>
 
-      {/* Main Content with form and animation */}
+      {/* Main Content */}
       <div className="flex justify-between items-start max-w-7xl w-full px-20 mt-24">
-        {/* Login Form in rounded div */}
+        {/* Login Form */}
         <motion.div
           className="w-1/2 bg-white rounded-lg p-10 shadow-lg"
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0, transition: { duration: 1 } }}
         >
-          {/* Header with Login to your account & Login with */}
           <div className="flex justify-between items-center mb-6">
             <span className="text-xl text-[#5942E9]">Login to your account</span>
             <div className="text-center">
@@ -141,12 +140,8 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            <motion.div
-              className="form-group"
-              whileHover={{ scale: 1.05 }}
-            >
+            <motion.div className="form-group" whileHover={{ scale: 1.05 }}>
               <input
                 type="email"
                 name="email"
@@ -158,10 +153,7 @@ export default function LoginPage() {
               />
             </motion.div>
 
-            <motion.div
-              className="form-group relative"
-              whileHover={{ scale: 1.05 }}
-            >
+            <motion.div className="form-group relative" whileHover={{ scale: 1.05 }}>
               <input
                 type={passwordVisible ? "text" : "password"}
                 name="password"
@@ -176,7 +168,6 @@ export default function LoginPage() {
               </button>
             </motion.div>
 
-            {/* Right aligned Login Button */}
             <div className="flex justify-end">
               <motion.button
                 type="submit"
@@ -190,7 +181,7 @@ export default function LoginPage() {
           </form>
         </motion.div>
 
-        {/* Right Side - Lottie Animation */}
+        {/* Animation */}
         <motion.div
           className="w-1/2 flex justify-end items-start mt-10"
           initial={{ opacity: 0, x: 100 }}
@@ -199,20 +190,20 @@ export default function LoginPage() {
           <Player
             autoplay
             loop
-            src="/assets/animations/login-animation.json" // Replace with your Lottie animation path for login
+            src="/assets/animations/login-animation.json" 
             style={{ height: '450px', width: '450px' }}
           />
         </motion.div>
       </div>
 
-      {/* Lottie Success Animation */}
+      {/* Success Animation */}
       {showAnimation && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-8 rounded-lg shadow-lg">
             <Player
               autoplay
               loop={false}
-              src="/assets/animations/successlogin.json"  // Replace with the path to your success Lottie animation
+              src="/assets/animations/successlogin.json" 
               style={{ height: '200px', width: '200px' }}
             />
             <p className="text-center mt-4 text-lg">{message}</p>
@@ -221,11 +212,7 @@ export default function LoginPage() {
       )}
 
       {/* Footer */}
-      <motion.div
-        className="text-center mt-6 bg-white py-4 w-full"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1, transition: { duration: 1 } }}
-      >
+      <motion.div className="text-center mt-6 bg-white py-4 w-full" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 1 } }}>
         <p className="text-gray-500 text-sm">
           &copy; Copyright VoxAi SQL 2024 |{' '}
           <Link href="/privacy" className="underline">

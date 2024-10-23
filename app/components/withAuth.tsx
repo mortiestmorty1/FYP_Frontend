@@ -7,14 +7,14 @@ const withAuth = (WrappedComponent: React.ComponentType) => {
     const router = useRouter();
 
     useEffect(() => {
-      const token = document.cookie.includes('token'); // Check if the token is present
+      // Check if token is present in localStorage
+      const token = localStorage.getItem('token');
 
       if (!token) {
         router.push('/login'); // Redirect to login if not authenticated
       }
     }, [router]);
 
-    // If token is present, render the wrapped component
     return <WrappedComponent />;
   };
 
