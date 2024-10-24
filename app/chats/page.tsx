@@ -31,6 +31,8 @@ export default function ChatsPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [showDBModal, setShowDBModal] = useState(false); // State for modal visibility
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
 
   // Fetch chats from the backend
   useEffect(() => {
@@ -63,6 +65,69 @@ export default function ChatsPage() {
 
     fetchChats();
   }, [router]);
+
+  useEffect(() => {
+    const initializeRecorder = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            setAudioBlob(event.data);
+          }
+        };
+
+        recorder.onerror = (error) => console.error('MediaRecorder error:', error);
+        setMediaRecorder(recorder);
+      } catch (error) {
+        console.error('Error accessing microphone:', error);
+        alert('Please allow microphone access and reload the page.');
+      }
+    };
+
+    initializeRecorder();
+
+    return () => {
+      mediaRecorder?.stream.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
+  const toggleRecording = async () => {
+    if (isRecording) {
+      // Stop recording
+      mediaRecorder?.stop();
+      setIsRecording(false);
+      console.log('Recording stopped.');
+      audioStream?.getTracks().forEach(track => track.stop()); // Clean up the stream
+    } else {
+      try {
+        // Initialize media stream and recorder
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setAudioStream(stream);
+  
+        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' }); // Use compatible type
+        setMediaRecorder(recorder);
+  
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            const audioBlob = new Blob([event.data], { type: event.data.type }); // Ensure correct blob type
+            setAudioBlob(audioBlob);
+            console.log('Audio data recorded:', audioBlob);
+          }
+        };
+  
+        recorder.onerror = (error) => console.error('MediaRecorder error:', error);
+  
+        recorder.start();
+        setIsRecording(true);
+        console.log('Recording started...');
+      } catch (error) {
+        console.error('Error accessing microphone:', error);
+        alert('Please allow microphone access and try again.');
+      }
+    }
+  };
 
   const selectChat = (chatId: number) => {
     console.log("Selected chat ID:", chatId);
@@ -137,57 +202,62 @@ export default function ChatsPage() {
   };
 
   const handleStartRecording = () => {
-    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorder.ondataavailable = (e) => setAudioBlob(e.data);
+    if (mediaRecorder && mediaRecorder.state === 'inactive') {
       mediaRecorder.start();
       setIsRecording(true);
-    }).catch((error) => {
-      console.error('Error accessing microphone:', error);
-    });
+      console.log('Recording started...');
+    }
   };
 
   const handleStopRecording = () => {
-    setIsRecording(false);
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      console.log('Recording stopped.');
+    }
   };
 
   const handleUploadVoice = async () => {
-    if (audioBlob) {
-      const formData = new FormData();
-      formData.append('audio', audioBlob, 'audio.wav');
-
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          router.push('/login');
-          return;
-        }
-
-        const response = await axios.post('http://localhost:3001/voice-to-text/upload', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token}`, // Pass token in headers
-          },
-        });
-
-        const transcribedText = response.data.transcription;
-        setChats((prevChats) =>
-          prevChats.map((chat) =>
-            chat._id === activeChatId
-              ? { ...chat, messages: [...chat.messages, { id: chat.messages.length + 1, text: transcribedText }] }
-              : chat
-          )
-        );
-      } catch (error) {
-        console.error('Error uploading voice:', error);
-        if (axios.isAxiosError(error)) {
-          if (error.response?.status === 401) {
-            router.push('/login');
-          }
-        }
+    if (!audioBlob) {
+      alert('Please record something before uploading.');
+      return;
+    }
+  
+    const formData = new FormData();
+    formData.append('voiceFile', audioBlob, 'audio.webm'); // Ensure key matches 'voiceFile'
+  
+    try {
+      console.log('Uploading audio...');
+      const token = localStorage.getItem('token');
+      const response = await axios.post('http://localhost:3001/voice-to-text/upload', formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+  
+      // Ensure proper access to nested transcription field
+      const rawTranscription = response.data?.data?.transcription;
+      console.log('Transcription received:', rawTranscription);
+  
+      if (rawTranscription) {
+        // Use regex to remove timestamps and extra formatting
+        const meaningfulText = rawTranscription.replace(/\[.*?\]\s*/g, '').trim();
+        console.log('Cleaned Transcription:', meaningfulText);
+        setInput(meaningfulText); // Update input field with cleaned transcription
+      } else {
+        alert('Transcription failed. Please try again.');
       }
+    } catch (error) {
+      console.error('Error uploading audio:', error);
+      alert('Failed to upload audio.');
     }
   };
+  
+  
+  
+  
+  
 
   const activeChat = chats.find((chat) => chat._id === activeChatId);
 
@@ -274,10 +344,17 @@ export default function ChatsPage() {
         </motion.div>
 
         <div className="w-full p-4">
-          <form onSubmit={handleSendMessage} className="w-full flex items-center p-2 bg-white shadow-md rounded-lg">
-            <button type="button" className="p-2" onClick={isRecording ? handleStopRecording : handleStartRecording}>
-              <FontAwesomeIcon icon={faMicrophone} size="lg" className={`text-gray-600 ${isRecording ? 'text-red-600' : ''}`} />
+        <form onSubmit={handleSendMessage}  className="w-full flex items-center p-2 bg-white shadow-md rounded-lg">
+            <button type="button" className="p-2 text-slate-600"  onClick={toggleRecording}>
+            <FontAwesomeIcon icon={faMicrophone} />
             </button>
+            <button
+            type="button"
+            className="p-2 bg-slate-500 text-white rounded"
+            onClick={handleUploadVoice}
+            >
+            Upload Voice
+          </button>
             <input
               type="text"
               className="flex-grow p-3 border-none focus:outline-none text-black mx-2"
