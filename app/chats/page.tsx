@@ -1,15 +1,21 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion'; // For animations
+import { motion } from 'framer-motion'; 
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import CollapsibleComponent from '../components/CollapsibleComponent';
 import UserProfile from '../components/UserProfile';
-import DBIntegrationModal from '../components/page'; // Ensure correct import of DBIntegrationModal
+import DBIntegrationModal from '../components/page'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import recordingAnimation from '/Users/shoaibahmed/Desktop/fyp_work/Final_year_project/frontend/public/assets/animations/recording.json';
 import { faMicrophone, faChartLine, faPlus, faChevronLeft, faChevronRight, faDatabase } from '@fortawesome/free-solid-svg-icons';
 import Image from 'next/image';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+
+const Player = dynamic(() => import('@lottiefiles/react-lottie-player').then(mod => mod.Player), {
+  ssr: false,
+});
 
 interface Message {
   id: number;
@@ -30,6 +36,7 @@ export default function ChatsPage() {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [showDBModal, setShowDBModal] = useState(false); // State for modal visibility
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
@@ -66,28 +73,33 @@ export default function ChatsPage() {
     fetchChats();
   }, [router]);
 
+  const recordingOptions = {
+    loop: true,
+    autoplay: true,
+    animationData: recordingAnimation,
+    rendererSettings: {
+      preserveAspectRatio: 'xMidYMid slice',
+    },
+  };
+
+
   useEffect(() => {
     const initializeRecorder = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const recorder = new MediaRecorder(stream);
-
         recorder.ondataavailable = (event) => {
           if (event.data.size > 0) {
             setAudioBlob(event.data);
           }
         };
-
-        recorder.onerror = (error) => console.error('MediaRecorder error:', error);
         setMediaRecorder(recorder);
       } catch (error) {
         console.error('Error accessing microphone:', error);
         alert('Please allow microphone access and reload the page.');
       }
     };
-
     initializeRecorder();
-
     return () => {
       mediaRecorder?.stream.getTracks().forEach((track) => track.stop());
     };
@@ -95,33 +107,59 @@ export default function ChatsPage() {
 
   const toggleRecording = async () => {
     if (isRecording) {
-      // Stop recording
       mediaRecorder?.stop();
       setIsRecording(false);
-      console.log('Recording stopped.');
-      audioStream?.getTracks().forEach(track => track.stop()); // Clean up the stream
+
+      audioStream?.getTracks().forEach((track) => track.stop());
+
+      setTimeout(async () => {
+        if (audioBlob) {
+          setIsTranscribing(true);  // Start transcribing indication
+          const formData = new FormData();
+          formData.append('voiceFile', audioBlob, 'audio.webm');
+
+          try {
+            const token = localStorage.getItem('token');
+            const response = await axios.post('http://localhost:3001/voice-to-text/upload', formData, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'multipart/form-data',
+              },
+            });
+
+            const rawTranscription = response.data?.data?.transcription;
+            if (rawTranscription) {
+              const meaningfulText = rawTranscription.replace(/\[.*?\]\s*/g, '').trim();
+              setInput(meaningfulText);
+            } else {
+              alert('Transcription failed. Please try again.');
+            }
+          } catch (error) {
+            console.error('Error uploading audio:', error);
+            alert('Failed to upload audio.');
+          } finally {
+            setIsTranscribing(false);  // Stop transcribing indication
+          }
+        } else {
+          alert('No audio recorded. Please try recording again.');
+        }
+      }, 500);
     } else {
       try {
-        // Initialize media stream and recorder
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         setAudioStream(stream);
-  
-        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' }); // Use compatible type
+
+        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
         setMediaRecorder(recorder);
-  
+
         recorder.ondataavailable = (event) => {
           if (event.data.size > 0) {
-            const audioBlob = new Blob([event.data], { type: event.data.type }); // Ensure correct blob type
-            setAudioBlob(audioBlob);
-            console.log('Audio data recorded:', audioBlob);
+            setAudioBlob(new Blob([event.data], { type: event.data.type }));
           }
         };
-  
-        recorder.onerror = (error) => console.error('MediaRecorder error:', error);
-  
+
         recorder.start();
         setIsRecording(true);
-        console.log('Recording started...');
       } catch (error) {
         console.error('Error accessing microphone:', error);
         alert('Please allow microphone access and try again.');
@@ -201,64 +239,6 @@ export default function ChatsPage() {
     setIsCollapsed(!isCollapsed);
   };
 
-  const handleStartRecording = () => {
-    if (mediaRecorder && mediaRecorder.state === 'inactive') {
-      mediaRecorder.start();
-      setIsRecording(true);
-      console.log('Recording started...');
-    }
-  };
-
-  const handleStopRecording = () => {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();
-      setIsRecording(false);
-      console.log('Recording stopped.');
-    }
-  };
-
-  const handleUploadVoice = async () => {
-    if (!audioBlob) {
-      alert('Please record something before uploading.');
-      return;
-    }
-  
-    const formData = new FormData();
-    formData.append('voiceFile', audioBlob, 'audio.webm'); // Ensure key matches 'voiceFile'
-  
-    try {
-      console.log('Uploading audio...');
-      const token = localStorage.getItem('token');
-      const response = await axios.post('http://localhost:3001/voice-to-text/upload', formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-  
-      // Ensure proper access to nested transcription field
-      const rawTranscription = response.data?.data?.transcription;
-      console.log('Transcription received:', rawTranscription);
-  
-      if (rawTranscription) {
-        // Use regex to remove timestamps and extra formatting
-        const meaningfulText = rawTranscription.replace(/\[.*?\]\s*/g, '').trim();
-        console.log('Cleaned Transcription:', meaningfulText);
-        setInput(meaningfulText); // Update input field with cleaned transcription
-      } else {
-        alert('Transcription failed. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error uploading audio:', error);
-      alert('Failed to upload audio.');
-    }
-  };
-  
-  
-  
-  
-  
-
   const activeChat = chats.find((chat) => chat._id === activeChatId);
 
   return (
@@ -305,9 +285,9 @@ export default function ChatsPage() {
               ) : (
                 chats.map((chat) => (
                   <button
-                    key={chat._id}  // Use _id as the key
+                    key={chat._id}  
                     className="bg-white p-3 rounded-lg shadow-sm text-black w-full text-left hover:bg-blue-100"
-                    onClick={() => selectChat(chat._id)}  // Pass _id to selectChat
+                    onClick={() => selectChat(chat._id)} 
                   >
                     {chat.title}
                   </button>
@@ -344,24 +324,27 @@ export default function ChatsPage() {
         </motion.div>
 
         <div className="w-full p-4">
-        <form onSubmit={handleSendMessage}  className="w-full flex items-center p-2 bg-white shadow-md rounded-lg">
-            <button type="button" className="p-2 text-slate-600"  onClick={toggleRecording}>
-            <FontAwesomeIcon icon={faMicrophone} />
+          <form onSubmit={handleSendMessage} className="w-full flex items-center p-2 bg-white shadow-md rounded-lg">
+            <button type="button" className="relative p-2" onClick={toggleRecording}>
+              {isRecording && (
+                <div className="absolute -top-20 -right-10 ml-5">
+                  <Player
+                    autoplay
+                    loop
+                    src={recordingAnimation}
+                    style={{ height: 100, width: 100 }}
+                  />
+                </div>
+              )}
+              <FontAwesomeIcon icon={faMicrophone} color={isRecording ? 'red' : 'black'} size="lg" />
             </button>
-            <button
-            type="button"
-            className="p-2 bg-slate-500 text-white rounded"
-            onClick={handleUploadVoice}
-            >
-            Upload Voice
-          </button>
             <input
               type="text"
-              className="flex-grow p-3 border-none focus:outline-none text-black mx-2"
-              value={input}
+              className={`flex-grow p-3 border-none focus:outline-none mx-2 ${isTranscribing ? 'text-gray-400 animate-pulse' : 'text-black'}`}
+              value={isTranscribing ? 'Transcribing...' : input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type a message..."
-              disabled={!activeChat}
+              disabled={!activeChat || isTranscribing}
             />
             <button type="submit" className="p-2 ml-2" disabled={!activeChat || input.trim() === ''}>
               <FontAwesomeIcon icon={faChartLine} size="lg" className="text-gray-600" />
