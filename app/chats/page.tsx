@@ -107,66 +107,102 @@ export default function ChatsPage() {
 
   const toggleRecording = async () => {
     if (isRecording) {
-      mediaRecorder?.stop();
-      setIsRecording(false);
-
-      audioStream?.getTracks().forEach((track) => track.stop());
-
-      setTimeout(async () => {
-        if (audioBlob) {
-          setIsTranscribing(true);  // Start transcribing indication
-          const formData = new FormData();
-          formData.append('voiceFile', audioBlob, 'audio.webm');
-
+      console.log("Stopping recording...");
+      if (mediaRecorder) {
+        // Stop the recorder
+        mediaRecorder.stop();
+        setIsRecording(false);
+  
+        // Stop the audio stream
+        if (audioStream) {
+          audioStream.getTracks().forEach((track) => track.stop());
+          setAudioStream(null);
+        }
+  
+        // Wait for the blob to be ready
+        const finalizedBlob = await new Promise<Blob | null>((resolve) => {
+          const chunks: Blob[] = [];
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              chunks.push(event.data);
+            }
+          };
+  
+          mediaRecorder.onstop = () => {
+            if (chunks.length > 0) {
+              const finalBlob = new Blob(chunks, { type: "audio/webm" });
+              console.log("Recording finalized. Blob size:", finalBlob.size);
+              resolve(finalBlob);
+            } else {
+              console.error("No audio data available.");
+              resolve(null);
+            }
+          };
+        });
+  
+        // Proceed if blob is ready
+        if (finalizedBlob) {
+          setAudioBlob(finalizedBlob);
+          console.log("Audio blob ready for transcription:", finalizedBlob);
+  
+          // Transcription logic
           try {
-            const token = localStorage.getItem('token');
-            const response = await axios.post('http://localhost:3001/voice-to-text/upload', formData, {
+            console.log("Uploading audio blob for transcription...");
+            setIsTranscribing(true);
+  
+            const formData = new FormData();
+            formData.append("voiceFile", finalizedBlob, "audio.webm");
+  
+            const token = localStorage.getItem("token");
+            const response = await axios.post("http://localhost:3001/voice-to-text/upload", formData, {
               headers: {
                 Authorization: `Bearer ${token}`,
-                'Content-Type': 'multipart/form-data',
+                "Content-Type": "multipart/form-data",
               },
             });
-
+  
             const rawTranscription = response.data?.data?.transcription;
             if (rawTranscription) {
-              const meaningfulText = rawTranscription.replace(/\[.*?\]\s*/g, '').trim();
-              setInput(meaningfulText);
+              const meaningfulText = rawTranscription.replace(/\[.*?\]\s*/g, "").trim();
+              setInput(meaningfulText); // Set the transcription as input
             } else {
-              alert('Transcription failed. Please try again.');
+              alert("Transcription failed. Please try again.");
             }
           } catch (error) {
-            console.error('Error uploading audio:', error);
-            alert('Failed to upload audio.');
+            console.error("Error uploading audio:", error);
+            alert("Failed to upload audio.");
           } finally {
-            setIsTranscribing(false);  // Stop transcribing indication
+            setIsTranscribing(false);
           }
         } else {
-          alert('No audio recorded. Please try recording again.');
+          alert("No audio recorded. Please try again.");
         }
-      }, 500);
+      }
     } else {
       try {
+        console.log("Starting recording...");
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         setAudioStream(stream);
-
-        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+  
+        const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/ogg";
+        const recorder = new MediaRecorder(stream, { mimeType });
         setMediaRecorder(recorder);
-
-        recorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            setAudioBlob(new Blob([event.data], { type: event.data.type }));
-          }
-        };
-
+  
         recorder.start();
         setIsRecording(true);
+        console.log("Recording started...");
       } catch (error) {
-        console.error('Error accessing microphone:', error);
-        alert('Please allow microphone access and try again.');
+        console.error("Error accessing microphone:", error);
+        alert("Please allow microphone access and try again.");
       }
     }
   };
-
+  const autoResize = (textarea: HTMLTextAreaElement) => {
+    textarea.style.height = 'auto'; // Reset height
+    textarea.style.height = `${textarea.scrollHeight}px`; // Set height to scrollHeight
+  };
+  
+  
   const selectChat = (chatId: number) => {
     console.log("Selected chat ID:", chatId);
     setActiveChatId(chatId);
@@ -338,14 +374,19 @@ export default function ChatsPage() {
               )}
               <FontAwesomeIcon icon={faMicrophone} color={isRecording ? 'red' : 'black'} size="lg" />
             </button>
-            <input
-              type="text"
-              className={`flex-grow p-3 border-none focus:outline-none mx-2 ${isTranscribing ? 'text-gray-400 animate-pulse' : 'text-black'}`}
-              value={isTranscribing ? 'Transcribing...' : input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type a message..."
-              disabled={!activeChat || isTranscribing}
-            />
+            <textarea
+                className={`flex-grow p-3 border-none focus:outline-none mx-2 resize-none ${
+                  isTranscribing ? 'text-gray-400 animate-pulse' : 'text-black'
+                }`}
+                value={isTranscribing ? 'Transcribing...' : input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  autoResize(e.target); // Dynamically adjust the height
+                }}
+                placeholder="Type a message..."
+                disabled={!activeChat || isTranscribing}
+                rows={1} // Minimum rows
+              />
             <button type="submit" className="p-2 ml-2" disabled={!activeChat || input.trim() === ''}>
               <FontAwesomeIcon icon={faChartLine} size="lg" className="text-gray-600" />
             </button>
