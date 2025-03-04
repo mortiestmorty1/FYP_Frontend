@@ -123,7 +123,7 @@ export default function LoginPage() {
           animate={{ opacity: 1, y: 0, transition: { duration: 1 } }}
         >
           <div className="flex justify-between items-center mb-6">
-            <span className="text-xl text-[#5942E9]">Login to your account</span>
+            <span className="text-xl text-[#5942E9] font-sora">Login to your account</span>
             <div className="text-center">
               <span className="block mb-2 text-gray-600">Login with</span>
               <div className="flex space-x-4">
@@ -148,7 +148,7 @@ export default function LoginPage() {
                 value={form.email}
                 onChange={handleInputChange}
                 placeholder="Your Email"
-                className="w-full px-6 py-3 border border-gray-300 rounded-md focus:border-[#5942E9] text-[#5942E9] text-lg"
+                className="w-full px-6 py-3 border border-gray-300 rounded-md focus:border-[#5942E9] text-[#5942E9] text-lg font-inter"
                 required
               />
             </motion.div>
@@ -160,7 +160,7 @@ export default function LoginPage() {
                 value={form.password}
                 onChange={handleInputChange}
                 placeholder="Password"
-                className="w-full px-6 py-3 border border-gray-300 rounded-md focus:border-[#5942E9] text-[#5942E9] text-lg"
+                className="w-full px-6 py-3 border border-gray-300 rounded-md focus:border-[#5942E9] text-[#5942E9] text-lg font-inter"
                 required
               />
               <button type="button" className="absolute right-4 top-3" onClick={togglePasswordVisibility}>
@@ -171,7 +171,7 @@ export default function LoginPage() {
             <div className="flex justify-end">
               <motion.button
                 type="submit"
-                className="w-28 bg-[#5942E9] text-white py-2 rounded-lg hover:bg-blue-700 transition-all"
+                className="w-28 bg-[#5942E9] text-white py-2 rounded-lg hover:bg-blue-700 transition-all font-inter"
                 whileHover={{ scale: 1.05 }}
                 disabled={isSubmitting}
               >
@@ -206,14 +206,14 @@ export default function LoginPage() {
               src="/assets/animations/successlogin.json" 
               style={{ height: '200px', width: '200px' }}
             />
-            <p className="text-center mt-4 text-lg">{message}</p>
+            <p className="text-center mt-4 text-lg font-inter">{message}</p>
           </div>
         </div>
       )}
 
       {/* Footer */}
       <motion.div className="text-center mt-6 bg-white py-4 w-full" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 1 } }}>
-        <p className="text-gray-500 text-sm">
+        <p className="text-gray-500 text-sm font-inter">
           &copy; Copyright VoxAi SQL 2024 |{' '}
           <Link href="/privacy" className="underline">
             Privacy Policy

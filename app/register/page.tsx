@@ -144,7 +144,7 @@ export default function RegisterPage() {
         >
           {/* Header with Register your account & Register with */}
           <div className="flex justify-between items-center mb-6">
-            <span className="text-l font-bold text-[#5942E9]">Register your account</span>
+            <span className="text-xl text-[#5942E9] font-sora">Create your account</span>
             <div className="text-center">
               <span className="block mb-2 text-gray-600">Register with</span>
               <div className="flex space-x-4">
@@ -170,7 +170,7 @@ export default function RegisterPage() {
                 value={form.username}
                 onChange={handleInputChange}
                 placeholder="Username"
-                className="w-full px-6 py-3 border border-gray-300 rounded-md focus:border-[#5942E9] text-[#5942E9] text-lg"
+                className="w-full px-6 py-3 border border-gray-300 rounded-md focus:border-[#5942E9] text-[#5942E9] text-lg font-inter"
                 required
               />
             </motion.div>
@@ -182,7 +182,7 @@ export default function RegisterPage() {
                 value={form.email}
                 onChange={handleInputChange}
                 placeholder="Email"
-                className="w-full px-6 py-3 border border-gray-300 rounded-md focus:border-[#5942E9] text-[#5942E9] text-lg"
+                className="w-full px-6 py-3 border border-gray-300 rounded-md focus:border-[#5942E9] text-[#5942E9] text-lg font-inter"
                 required
               />
             </motion.div>
@@ -194,7 +194,7 @@ export default function RegisterPage() {
                 value={form.password}
                 onChange={handleInputChange}
                 placeholder="Password"
-                className="w-full px-6 py-3 border border-gray-300 rounded-md focus:border-[#5942E9] text-[#5942E9] text-lg"
+                className="w-full px-6 py-3 border border-gray-300 rounded-md focus:border-[#5942E9] text-[#5942E9] text-lg font-inter"
                 required
               />
             </motion.div>

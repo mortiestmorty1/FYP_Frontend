@@ -49,7 +49,7 @@ export default function WelcomePage() {
       </div>
 
       <motion.h1
-        className="text-5xl font-bold text-center relative z-10 mb-12 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-800"
+        className="text-5xl font-bold text-center relative z-10 mb-12 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-800 font-sora"
         variants={textVariants}
         initial="hidden"
         animate="visible"
@@ -93,12 +93,12 @@ export default function WelcomePage() {
             animate="visible"
           >
             <Link href="/login">
-              <button className="bg-[#5942E9] text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-all duration-300 w-full text-center">
+              <button className="bg-[#5942E9] text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-all duration-300 w-full text-center font-inter">
                 Login
               </button>
             </Link>
             <Link href="/register">
-              <button className="bg-[#5942E9] text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-all duration-300 w-full text-center">
+              <button className="bg-[#5942E9] text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-all duration-300 w-full text-center font-inter">
                 Sign Up
               </button>
             </Link>
@@ -123,7 +123,7 @@ export default function WelcomePage() {
 
       {/* Footer Section */}
       {/* Footer Section with Gradient */}
-      <div className="text-center mt-20 relative z-10 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-800">
+      <div className="text-center mt-20 relative z-10 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-800 font-inter">
         <p>Your voice, your queries, your SQL—powered by VoxAi.</p>
       </div>
     </div>

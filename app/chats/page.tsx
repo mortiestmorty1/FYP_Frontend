@@ -7,11 +7,15 @@ import CollapsibleComponent from '../components/CollapsibleComponent';
 import UserProfile from '../components/UserProfile';
 import DBIntegrationModal from '../components/page'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import recordingAnimation from '/Users/shoaibahmed/Desktop/fyp_work/Final_year_project/frontend/public/assets/animations/recording.json';
-import { faMicrophone, faChartLine, faPlus, faChevronLeft, faChevronRight, faDatabase } from '@fortawesome/free-solid-svg-icons';
+import recordingAnimation from '/Users/shoaibahmed/Desktop/final-year/Final_year_project/frontend/public/assets/animations/recording.json';
+
+import { faMicrophone, faChartLine, faPlus, faChevronLeft, faChevronRight, faDatabase,faSpinner } from '@fortawesome/free-solid-svg-icons';
 import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import { format, isToday, isYesterday, isThisWeek } from "date-fns";
+import { Inter, Sora } from 'next/font/google';
+
 
 const Player = dynamic(() => import('@lottiefiles/react-lottie-player').then(mod => mod.Player), {
   ssr: false,
@@ -20,58 +24,127 @@ const Player = dynamic(() => import('@lottiefiles/react-lottie-player').then(mod
 interface Message {
   id: number;
   text: string;
+  createdAt: string;
+  
 }
 
 interface Chat {
   _id: number;
   title: string;
   messages: Message[];
+  isTitleLoading?: boolean;
 }
+interface CategorizedChats {
+  today: Chat[];
+  yesterday: Chat[];
+  previous7Days: Chat[];
+  older: Chat[];
+}
+
+const categorizeChats = (chats: Chat[]): CategorizedChats => {
+  const today: Chat[] = [];
+  const yesterday: Chat[] = [];
+  const previous7Days: Chat[] = [];
+  const older: Chat[] = [];
+
+  chats.forEach((chat) => {
+    if (chat.messages.length === 0) return; 
+    const lastMessageDate = new Date(chat.messages[chat.messages.length - 1].createdAt);
+
+    if (isToday(lastMessageDate)) {
+      today.push(chat);
+    } else if (isYesterday(lastMessageDate)) {
+      yesterday.push(chat);
+    } else if (isThisWeek(lastMessageDate)) {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0); 
+      const daysDiff = (startOfToday.getTime() - lastMessageDate.getTime()) / (1000 * 60 * 60 * 24);
+
+      if (daysDiff > 1 && daysDiff <= 7) {
+        previous7Days.push(chat);
+      }
+    } else {
+      older.push(chat);
+    }
+  });
+
+  
+  const sortByDateDesc = (a: Chat, b: Chat) => {
+    const dateA = new Date(a.messages[a.messages.length - 1].createdAt).getTime();
+    const dateB = new Date(b.messages[b.messages.length - 1].createdAt).getTime();
+    return dateB - dateA; 
+  };
+
+  return {
+    today: today.sort(sortByDateDesc),
+    yesterday: yesterday.sort(sortByDateDesc),
+    previous7Days: previous7Days.sort(sortByDateDesc),
+    older: older.sort(sortByDateDesc),
+  };
+};
+
+// Initialize fonts
+const inter = Inter({ 
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-inter'
+});
+
+const sora = Sora({ 
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-sora'
+});
 
 export default function ChatsPage() {
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [chats, setChats] = useState<Chat[]>([]);
+  const [categorizedChats, setCategorizedChats] = useState<CategorizedChats>({
+    today: [],
+    yesterday: [],
+    previous7Days: [],
+    older: [],
+  });
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
   const [input, setInput] = useState('');
+  const [loadingTitle, setLoadingTitle] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [showDBModal, setShowDBModal] = useState(false); // State for modal visibility
+  const [showDBModal, setShowDBModal] = useState(false); 
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  
 
-  // Fetch chats from the backend
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      router.push('/login'); // Redirect to login if no token is found
+      router.push('/login');
+      return;
     }
 
     const fetchChats = async () => {
       try {
-        console.log("Fetching chats...");
         const response = await axios.get('http://localhost:3001/chat', {
           headers: {
-            Authorization: `Bearer ${token}`, // Pass token in headers
+            Authorization: `Bearer ${token}`,
           },
         });
-        console.log("Chats fetched successfully:", response.data);
         setChats(response.data);
+        setCategorizedChats(categorizeChats(response.data));
       } catch (error) {
         console.error('Error fetching chats:', error);
-        if (axios.isAxiosError(error)) {
-          if (error.response?.status === 401) {
-            router.push('/login'); // Redirect to login on unauthorized
-          } else {
-            console.error("Error:", error.message);
-          }
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          router.push('/login');
         }
       }
     };
 
     fetchChats();
   }, [router]);
+ 
 
   const recordingOptions = {
     loop: true,
@@ -109,17 +182,17 @@ export default function ChatsPage() {
     if (isRecording) {
       console.log("Stopping recording...");
       if (mediaRecorder) {
-        // Stop the recorder
+      
         mediaRecorder.stop();
         setIsRecording(false);
   
-        // Stop the audio stream
+       
         if (audioStream) {
           audioStream.getTracks().forEach((track) => track.stop());
           setAudioStream(null);
         }
   
-        // Wait for the blob to be ready
+        
         const finalizedBlob = await new Promise<Blob | null>((resolve) => {
           const chunks: Blob[] = [];
           mediaRecorder.ondataavailable = (event) => {
@@ -140,12 +213,12 @@ export default function ChatsPage() {
           };
         });
   
-        // Proceed if blob is ready
+       
         if (finalizedBlob) {
           setAudioBlob(finalizedBlob);
           console.log("Audio blob ready for transcription:", finalizedBlob);
   
-          // Transcription logic
+
           try {
             console.log("Uploading audio blob for transcription...");
             setIsTranscribing(true);
@@ -164,7 +237,7 @@ export default function ChatsPage() {
             const rawTranscription = response.data?.data?.transcription;
             if (rawTranscription) {
               const meaningfulText = rawTranscription.replace(/\[.*?\]\s*/g, "").trim();
-              setInput(meaningfulText); // Set the transcription as input
+              setInput(meaningfulText); 
             } else {
               alert("Transcription failed. Please try again.");
             }
@@ -198,79 +271,134 @@ export default function ChatsPage() {
     }
   };
   const autoResize = (textarea: HTMLTextAreaElement) => {
-    textarea.style.height = 'auto'; // Reset height
-    textarea.style.height = `${textarea.scrollHeight}px`; // Set height to scrollHeight
+    textarea.style.height = 'auto'; 
+    textarea.style.height = `${textarea.scrollHeight}px`; 
   };
   
   
   const selectChat = (chatId: number) => {
     console.log("Selected chat ID:", chatId);
-    setActiveChatId(chatId);
+    setActiveChatId(chatId); 
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(`Sending message: ${input} to chat ID: ${activeChatId}`);
-
-    if (input.trim() === '' || activeChatId === null) {
-      console.error("No active chat selected");
+    if (input.trim() === '') return;
+  
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/login');
       return;
     }
 
+    let chatId = activeChatId;
+    setIsSending(true);
+  
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        router.push('/login');
-        return;
+      if (!chatId) {
+        const createChatResponse = await axios.post(
+          'http://localhost:3001/chat/create',
+          { title: 'New Chat', messages: [] },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+  
+        const newChat = createChatResponse.data.chat;
+        const updatedChats = [...chats, { ...newChat, isTitleLoading: true }];
+        setChats(updatedChats);
+        setCategorizedChats(categorizeChats(updatedChats));
+        setActiveChatId(newChat._id);
+        chatId = newChat._id;
       }
-
-      // Send message to backend
-      await axios.post(
+  
+      // Set loading state before sending message
+      const updatedChats = chats.map((chat) =>
+        chat._id === chatId ? { ...chat, isTitleLoading: true } : chat
+      );
+      setChats(updatedChats);
+      setCategorizedChats(categorizeChats(updatedChats));
+  
+      const messageResponse = await axios.post(
         'http://localhost:3001/chat/message',
-        { chatId: activeChatId, text: input },
+        { chatId, text: input },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      // Update local state with new message
-      setChats((prevChats) =>
-        prevChats.map((chat) =>
-          chat._id === activeChatId
-            ? { ...chat, messages: [...chat.messages, { id: chat.messages.length + 1, text: input }] }
-            : chat
-        )
+  
+      const updatedChat = messageResponse.data.chat;
+  
+      // Update chats with new message and maintain loading state if it's the first message
+      const chatsWithNewMessage = chats.map((chat) =>
+        chat._id === chatId ? { 
+          ...chat, 
+          messages: updatedChat.messages, 
+          isTitleLoading: updatedChat.messages.length === 1 
+        } : chat
       );
+      setChats(chatsWithNewMessage);
+      setCategorizedChats(categorizeChats(chatsWithNewMessage));
+  
+      // If this is the first message, wait for title generation
+      if (updatedChat.messages.length === 1) {
+        // Wait for a short time to show the loading state
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Update the chat with the title from the response
+        const finalChats = chatsWithNewMessage.map((chat) =>
+          chat._id === chatId ? { 
+            ...chat, 
+            title: updatedChat.title,
+            isTitleLoading: false 
+          } : chat
+        );
+        setChats(finalChats);
+        setCategorizedChats(categorizeChats(finalChats));
+      } else {
+        // If not the first message, remove loading state
+        const finalChats = chatsWithNewMessage.map((chat) =>
+          chat._id === chatId ? { ...chat, isTitleLoading: false } : chat
+        );
+        setChats(finalChats);
+        setCategorizedChats(categorizeChats(finalChats));
+      }
+  
       setInput('');
     } catch (error) {
       console.error('Error sending message:', error);
+      // If there's an error, make sure to remove loading state
+      const errorChats = chats.map((chat) =>
+        chat._id === chatId ? { ...chat, isTitleLoading: false } : chat
+      );
+      setChats(errorChats);
+      setCategorizedChats(categorizeChats(errorChats));
+    } finally {
+      setIsSending(false);
     }
   };
-
+  
+  
   const handleCreateNewChat = async () => {
-    console.log("Creating a new chat...");
-
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+  
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        router.push('/login');
-        return;
-      }
-
-      const response = await axios.post('http://localhost:3001/chat/create', 
-        { title: `Chat ${chats.length + 1}`, messages: [] }, 
+      const response = await axios.post(
+        'http://localhost:3001/chat/create',
+        { title: `Chat ${chats.length + 1}`, messages: [] },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      const newChat = response.data.chat;
-      setChats([...chats, newChat]);
-      setActiveChatId(newChat.id);
+  
+      const newChat = { ...response.data.chat, isTitleLoading: true }; 
+      const updatedChats = [...chats, newChat];
+      setChats(updatedChats);
+      setCategorizedChats(categorizeChats(updatedChats));
+      setActiveChatId(newChat._id); 
     } catch (error) {
       console.error('Error creating new chat:', error);
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        router.push('/login');
-      }
     }
   };
-
+  
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
   };
@@ -278,62 +406,100 @@ export default function ChatsPage() {
   const activeChat = chats.find((chat) => chat._id === activeChatId);
 
   return (
-    <div className="flex h-screen">
-      <motion.div
-        className={`bg-gray-100 h-full shadow-lg transition-all duration-500 relative ${isCollapsed ? 'w-0' : 'w-1/4'}`}
-      >
-        {!isCollapsed && (
-          <div className="flex justify-between items-center p-4">
-            <h2 className="font-bold text-lg text-[#5942E9]">Chats</h2>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleCreateNewChat}
-                className="bg-gradient-to-r from-purple-400 to-blue-500 text-white p-2 rounded-full shadow-lg hover:from-purple-500 hover:to-blue-600 transition-all duration-300"
-              >
-                <FontAwesomeIcon icon={faPlus} />
-              </button>
-              <button
-                onClick={() => setShowDBModal(true)} // Trigger the database modal
-                className="bg-gradient-to-r from-purple-400 to-blue-500 text-white p-2 rounded-full shadow-lg hover:from-purple-500 hover:to-blue-600 transition-all duration-300"
-              >
-                <FontAwesomeIcon icon={faDatabase} />
-              </button>
-              <button onClick={toggleCollapse} className="bg-gray-200 p-2 rounded-full shadow-lg hover:bg-gray-300">
-                <FontAwesomeIcon icon={faChevronLeft} />
-              </button>
-            </div>
+    <div className={`flex h-screen ${inter.variable} ${sora.variable}`}>
+     <motion.div
+    className={`bg-gray-100 h-full shadow-lg transition-all duration-500 relative ${
+      isCollapsed ? 'w-0' : 'w-1/4'
+    }`}
+  >
+    {!isCollapsed && (
+      <div className="flex flex-col h-full">
+        {/* Header Section */}
+        <div className="flex justify-between items-center p-4">
+          <h2 className={`font-bold text-lg text-[#5942E9] font-sora`}>Chats</h2>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleCreateNewChat}
+              className="bg-gradient-to-r from-purple-400 to-blue-500 text-white p-2 rounded-full shadow-lg hover:from-purple-500 hover:to-blue-600 transition-all duration-300"
+            >
+              <FontAwesomeIcon icon={faPlus} />
+            </button>
+            <button
+              onClick={() => setShowDBModal(true)}
+              className="bg-gradient-to-r from-purple-400 to-blue-500 text-white p-2 rounded-full shadow-lg hover:from-purple-500 hover:to-blue-600 transition-all duration-300"
+            >
+              <FontAwesomeIcon icon={faDatabase} />
+            </button>
+            <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="bg-gray-200 p-2 rounded-full shadow-lg hover:bg-gray-300"
+            >
+              <FontAwesomeIcon icon={faChevronLeft} />
+            </button>
           </div>
-        )}
-        {isCollapsed && (
-          <button onClick={toggleCollapse} className="bg-gray-200 p-2 absolute top-10 left-0 rounded-full shadow-lg hover:bg-gray-300 z-50">
-            <FontAwesomeIcon icon={faChevronRight} />
-          </button>
-        )}
-        {!isCollapsed && (
-          <CollapsibleComponent
-          title="Today"
-          onToggleCollapse={toggleCollapse}
-          titleStyle={{ color: '#5942E9', fontWeight: 'bold' }} // Apply custom color and styles
-          >
-            <div className="space-y-2 text-black">
-            {chats.length === 0 ? (
-                <p className="text-center text-gray-500">No chats available</p>
-              ) : (
-                chats.map((chat) => (
-                  <button
-                    key={chat._id}  
-                    className="bg-white p-3 rounded-lg shadow-sm text-black w-full text-left hover:bg-blue-100"
-                    onClick={() => selectChat(chat._id)} 
-                  >
-                    {chat.title}
-                  </button>
-                ))
-              )}
-            </div>
-          </CollapsibleComponent>
-        )}
-      </motion.div>
+        </div>
 
+        {/* Scrollable Chat List */}
+        <div className="flex-grow overflow-y-auto p-4 space-y-6">
+          {Object.entries(categorizedChats).map(([category, chats]) => (
+            <div key={category} className="space-y-2">
+              <h3 className={`text-[#5942E9] font-bold text-sm mb-3 font-sora px-2`}>
+                {category.charAt(0).toUpperCase() + category.slice(1)}
+              </h3>
+              <div className="space-y-1">
+                {chats.length === 0 ? (
+                  <p className="text-center text-gray-500 font-inter text-sm px-2">No chats available</p>
+                ) : (
+                  chats.map((chat: Chat) => (
+                    <button
+                      key={chat._id}
+                      className={`w-full text-left text-black px-3 py-2 rounded-md transition-all duration-300 ${
+                        chat.isTitleLoading 
+                          ? 'bg-gradient-to-r from-gray-100 to-gray-200' 
+                          : 'hover:text-[#5942E9] hover:bg-gray-200'
+                      } truncate flex items-center font-inter text-sm`}
+                      onClick={() => !chat.isTitleLoading && selectChat(chat._id)}
+                      disabled={chat.isTitleLoading}
+                    >
+                      {chat.isTitleLoading ? (
+                        <span className="flex items-center gap-2 w-full">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 bg-[#5942E9] rounded-full animate-[bounce_1s_infinite]" style={{ animationDelay: '0ms' }}></div>
+                            <div className="w-3 h-3 bg-[#5942E9] rounded-full animate-[bounce_1s_infinite]" style={{ animationDelay: '150ms' }}></div>
+                            <div className="w-3 h-3 bg-[#5942E9] rounded-full animate-[bounce_1s_infinite]" style={{ animationDelay: '300ms' }}></div>
+                          </div>
+                          <span className="text-gray-500 text-sm animate-pulse">Generating Title...</span>
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            display: 'block',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {chat.title || 'New Chat'}
+                        </span>
+                      )}
+                    </button>                 
+                  ))
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+    {isCollapsed && (
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="absolute top-10 left-0 bg-gray-200 p-2 rounded-full shadow-lg hover:bg-gray-300 z-50"
+      >
+        <FontAwesomeIcon icon={faChevronRight} />
+      </button>
+    )}
+  </motion.div>
       <div className="flex-grow bg-gray-50 h-full p-4 flex flex-col justify-between transition-all duration-500">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -343,19 +509,19 @@ export default function ChatsPage() {
         >
           <ChatHeader />
           <div className="bg-white p-6 rounded-lg shadow-lg w-full h-full flex flex-col justify-center items-center">
-            {activeChat ? (
-              activeChat.messages.length === 0 ? (
-                <p className="text-center text-black w-full text-lg">Start the conversation...</p>
+          {activeChat ? (
+                activeChat.messages.length === 0 ? (
+                  <p className="text-center text-black w-full text-lg font-inter">Start the conversation...</p>
+                ) : (
+                  activeChat.messages.map((message) => (
+                    <div key={message.id} className="bg-blue-200 p-2 rounded-lg w-full text-black font-inter">
+                      {message.text}
+                    </div>
+                  ))
+                )
               ) : (
-                activeChat.messages.map((message) => (
-                  <div key={message.id} className="bg-blue-200 p-2 rounded-lg w-full text-black">
-                    {message.text}
-                  </div>
-                ))
-              )
-            ) : (
-              <p className="text-center text-gray-500 w-full text-lg">Please select a chat to start</p>
-            )}
+                <p className="text-center text-gray-500 w-full text-lg font-inter">Please select a chat to start</p>
+              )}
           </div>
         </motion.div>
 
@@ -375,26 +541,33 @@ export default function ChatsPage() {
               <FontAwesomeIcon icon={faMicrophone} color={isRecording ? 'red' : 'black'} size="lg" />
             </button>
             <textarea
-                className={`flex-grow p-3 border-none focus:outline-none mx-2 resize-none ${
+                className={`flex-grow p-3 border-none focus:outline-none mx-2 resize-none font-inter ${
                   isTranscribing ? 'text-gray-400 animate-pulse' : 'text-black'
                 }`}
                 value={isTranscribing ? 'Transcribing...' : input}
                 onChange={(e) => {
                   setInput(e.target.value);
-                  autoResize(e.target); // Dynamically adjust the height
+                  autoResize(e.target);
                 }}
                 placeholder="Type a message..."
-                disabled={!activeChat || isTranscribing}
-                rows={1} // Minimum rows
+                disabled={!activeChat || isTranscribing || isSending}
+                rows={1} 
               />
-            <button type="submit" className="p-2 ml-2" disabled={!activeChat || input.trim() === ''}>
-              <FontAwesomeIcon icon={faChartLine} size="lg" className="text-gray-600" />
+           <button
+              type="submit"
+              className={`p-2 ml-2 ${isSending ? 'cursor-not-allowed' : ''}`}
+              disabled={isSending || !input.trim()}
+            >
+              {isSending ? (
+                <FontAwesomeIcon icon={faSpinner} spin className="text-gray-500" />
+              ) : (
+                <FontAwesomeIcon icon={faChartLine} size="lg" className="text-gray-600" />
+              )}
             </button>
+
           </form>
         </div>
       </div>
-
-      {/* Render the DBIntegrationPage as a modal */}
       {showDBModal && (
         <DBIntegrationModal showModal={showDBModal} closeModal={() => setShowDBModal(false)} />
       )}

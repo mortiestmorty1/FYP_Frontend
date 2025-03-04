@@ -9,7 +9,12 @@ interface CollapsibleComponentProps {
   titleStyle?: React.CSSProperties; // Add titleStyle prop to customize title appearance
 }
 
-const CollapsibleComponent: React.FC<CollapsibleComponentProps> = ({ title, children, onToggleCollapse, titleStyle }) => {
+const CollapsibleComponent: React.FC<CollapsibleComponentProps> = ({
+  title,
+  children,
+  onToggleCollapse,
+  titleStyle,
+}) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleToggleCollapse = () => {
@@ -19,24 +24,28 @@ const CollapsibleComponent: React.FC<CollapsibleComponentProps> = ({ title, chil
   };
 
   return (
-    <div className="relative">
+    <div className="relative border-b border-gray-200">
+      <div
+        className="p-4 bg-white rounded-t-lg shadow-md flex justify-between items-center cursor-pointer"
+        onClick={handleToggleCollapse}
+      >
+        {/* Apply custom style to the title */}
+        <h3 className="font-bold" style={titleStyle}>
+          {title}
+        </h3>
+        <FontAwesomeIcon
+          icon={isCollapsed ? faChevronRight : faChevronLeft}
+          className="text-gray-500"
+        />
+      </div>
       {!isCollapsed && (
-        <div className="p-4 bg-white rounded-lg shadow-md">
-          {/* Apply custom style to the title */}
-          <h3 className="font-bold mb-4" style={titleStyle}>
-            {title}
-          </h3>
+        <div
+          className="max-h-64 overflow-y-auto p-4 bg-gray-50 rounded-b-lg"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: '#ccc #f5f5f5' }} // Customize scrollbars
+        >
           {children}
         </div>
       )}
-
-      {/* Toggle Button */}
-      {/* <button
-        onClick={handleToggleCollapse}
-        className="absolute top-4 right-4 p-2 bg-gray-200 rounded-full shadow hover:bg-gray-300 transition-all"
-      >
-        <FontAwesomeIcon icon={isCollapsed ? faChevronRight : faChevronLeft} />
-      </button> */}
     </div>
   );
 };
