@@ -9,7 +9,7 @@ import DBIntegrationModal from '../components/page';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import recordingAnimation from '/Users/shoaibahmed/Desktop/final-year/Final_year_project/frontend/public/assets/animations/recording.json';
 
-import { faMicrophone, faChartLine, faPlus, faChevronLeft, faChevronRight, faDatabase,faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faMicrophone, faChartLine, faPlus, faChevronLeft, faChevronRight, faDatabase,faSpinner, faUser, faRobot, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
@@ -406,166 +406,233 @@ export default function ChatsPage() {
   const activeChat = chats.find((chat) => chat._id === activeChatId);
 
   return (
-    <div className={`flex h-screen ${inter.variable} ${sora.variable}`}>
-     <motion.div
-    className={`bg-gray-100 h-full shadow-lg transition-all duration-500 relative ${
-      isCollapsed ? 'w-0' : 'w-1/4'
-    }`}
-  >
-    {!isCollapsed && (
-      <div className="flex flex-col h-full">
-        {/* Header Section */}
-        <div className="flex justify-between items-center p-4">
-          <h2 className={`font-bold text-lg text-[#5942E9] font-sora`}>Chats</h2>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleCreateNewChat}
-              className="bg-gradient-to-r from-purple-400 to-blue-500 text-white p-2 rounded-full shadow-lg hover:from-purple-500 hover:to-blue-600 transition-all duration-300"
-            >
-              <FontAwesomeIcon icon={faPlus} />
-            </button>
-            <button
-              onClick={() => setShowDBModal(true)}
-              className="bg-gradient-to-r from-purple-400 to-blue-500 text-white p-2 rounded-full shadow-lg hover:from-purple-500 hover:to-blue-600 transition-all duration-300"
-            >
-              <FontAwesomeIcon icon={faDatabase} />
-            </button>
-            <button
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className="bg-gray-200 p-2 rounded-full shadow-lg hover:bg-gray-300"
-            >
-              <FontAwesomeIcon icon={faChevronLeft} />
-            </button>
-          </div>
-        </div>
-
-        {/* Scrollable Chat List */}
-        <div className="flex-grow overflow-y-auto p-4 space-y-6">
-          {Object.entries(categorizedChats).map(([category, chats]) => (
-            <div key={category} className="space-y-2">
-              <h3 className={`text-[#5942E9] font-bold text-sm mb-3 font-sora px-2`}>
-                {category.charAt(0).toUpperCase() + category.slice(1)}
-              </h3>
-              <div className="space-y-1">
-                {chats.length === 0 ? (
-                  <p className="text-center text-gray-500 font-inter text-sm px-2">No chats available</p>
-                ) : (
-                  chats.map((chat: Chat) => (
-                    <button
-                      key={chat._id}
-                      className={`w-full text-left text-black px-3 py-2 rounded-md transition-all duration-300 ${
-                        chat.isTitleLoading 
-                          ? 'bg-gradient-to-r from-gray-100 to-gray-200' 
-                          : 'hover:text-[#5942E9] hover:bg-gray-200'
-                      } truncate flex items-center font-inter text-sm`}
-                      onClick={() => !chat.isTitleLoading && selectChat(chat._id)}
-                      disabled={chat.isTitleLoading}
-                    >
-                      {chat.isTitleLoading ? (
-                        <span className="flex items-center gap-2 w-full">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-3 h-3 bg-[#5942E9] rounded-full animate-[bounce_1s_infinite]" style={{ animationDelay: '0ms' }}></div>
-                            <div className="w-3 h-3 bg-[#5942E9] rounded-full animate-[bounce_1s_infinite]" style={{ animationDelay: '150ms' }}></div>
-                            <div className="w-3 h-3 bg-[#5942E9] rounded-full animate-[bounce_1s_infinite]" style={{ animationDelay: '300ms' }}></div>
-                          </div>
-                          <span className="text-gray-500 text-sm animate-pulse">Generating Title...</span>
-                        </span>
-                      ) : (
-                        <span
-                          style={{
-                            display: 'block',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {chat.title || 'New Chat'}
-                        </span>
-                      )}
-                    </button>                 
-                  ))
-                )}
+    <div className={`flex h-screen ${inter.variable} ${sora.variable} bg-white`}>
+      {/* Sidebar */}
+      <motion.div
+        className={`bg-gray-50 h-full transition-all duration-500 relative ${
+          isCollapsed ? 'w-0' : 'w-64'
+        }`}
+      >
+        {!isCollapsed && (
+          <div className="flex flex-col h-full px-2">
+            {/* Header Section */}
+            <div className="flex justify-between items-center p-4">
+              <h2 className={`font-bold text-lg text-[#5942E9] font-sora`}>Chats</h2>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleCreateNewChat}
+                  className="bg-gradient-to-r from-[#5942E9] to-[#42DFE9] text-white p-2 rounded-full hover:opacity-90 transition-all duration-300"
+                >
+                  <FontAwesomeIcon icon={faPlus} />
+                </button>
+                <button
+                  onClick={() => setShowDBModal(true)}
+                  className="bg-gradient-to-r from-[#5942E9] to-[#42DFE9] text-white p-2 rounded-full hover:opacity-90 transition-all duration-300"
+                >
+                  <FontAwesomeIcon icon={faDatabase} />
+                </button>
+                <button
+                  onClick={() => setIsCollapsed(!isCollapsed)}
+                  className="bg-gray-100 p-2 rounded-full hover:bg-gray-200"
+                >
+                  <FontAwesomeIcon icon={faChevronLeft} />
+                </button>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-    )}
-    {isCollapsed && (
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute top-10 left-0 bg-gray-200 p-2 rounded-full shadow-lg hover:bg-gray-300 z-50"
-      >
-        <FontAwesomeIcon icon={faChevronRight} />
-      </button>
-    )}
-  </motion.div>
-      <div className="flex-grow bg-gray-50 h-full p-4 flex flex-col justify-between transition-all duration-500">
+
+            {/* Scrollable Chat List */}
+            <div className="flex-grow overflow-y-auto">
+              {Object.entries(categorizedChats).map(([category, chats]) => (
+                <div key={category} className="mb-4">
+                  <h3 className={`text-[#5942E9] font-bold text-sm px-4 py-2 font-sora`}>
+                    {category.charAt(0).toUpperCase() + category.slice(1)}
+                  </h3>
+                  <div>
+                    {chats.length === 0 ? (
+                      <p className="text-center text-gray-500 font-inter text-sm px-4">No chats available</p>
+                    ) : (
+                      chats.map((chat: Chat) => (
+                        <button
+                          key={chat._id}
+                          className={`w-full text-left px-4 py-3 mx-2 my-1 transition-all duration-300 ${
+                            chat._id === activeChatId
+                              ? 'bg-gradient-to-r from-[#5942E9] to-[#42DFE9] text-white rounded-xl'
+                              : chat.isTitleLoading 
+                                ? 'bg-gradient-to-r from-gray-100 to-gray-200 rounded-xl' 
+                                : 'hover:bg-gray-100 rounded-xl'
+                          } truncate flex items-center font-inter text-sm`}
+                          onClick={() => !chat.isTitleLoading && selectChat(chat._id)}
+                          disabled={chat.isTitleLoading}
+                        >
+                          {chat.isTitleLoading ? (
+                            <span className="flex items-center gap-2 w-full">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-2.5 h-2.5 bg-[#42DFE9] rounded-full animate-[bounce_1s_infinite]" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-2.5 h-2.5 bg-[#42DFE9] rounded-full animate-[bounce_1s_infinite]" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-2.5 h-2.5 bg-[#42DFE9] rounded-full animate-[bounce_1s_infinite]" style={{ animationDelay: '300ms' }}></div>
+                              </div>
+                              <span className="text-gray-700 text-sm font-medium">Generating Title...</span>
+                            </span>
+                          ) : (
+                            <span className="truncate">
+                              {chat.title || 'New Chat'}
+                            </span>
+                          )}
+                        </button>                 
+                      ))
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {isCollapsed && (
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="absolute top-4 -right-10 bg-gray-100 p-2 rounded-full hover:bg-gray-200"
+          >
+            <FontAwesomeIcon icon={faChevronRight} />
+          </button>
+        )}
+      </motion.div>
+
+      {/* Main Content */}
+      <div className="flex-grow h-full flex flex-col">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="flex-grow flex flex-col justify-center items-center"
+          className="flex-grow flex flex-col h-full"
         >
-          <ChatHeader />
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full h-full flex flex-col justify-center items-center">
-          {activeChat ? (
-                activeChat.messages.length === 0 ? (
-                  <p className="text-center text-black w-full text-lg font-inter">Start the conversation...</p>
-                ) : (
-                  activeChat.messages.map((message) => (
-                    <div key={message.id} className="bg-blue-200 p-2 rounded-lg w-full text-black font-inter">
-                      {message.text}
-                    </div>
-                  ))
-                )
+          <div className="px-6 py-3">
+            <div className="max-w-[1200px] w-full mx-auto px-4">
+              <ChatHeader />
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {activeChat ? (
+              activeChat.messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full space-y-4">
+                  <h2 className="text-2xl font-sora text-gray-700">Welcome to VoxAi SQL</h2>
+                  <p className="text-gray-500 font-inter text-center max-w-md">
+                    Start a conversation by typing your message or using voice input. I'll help you convert your natural language into SQL queries.
+                  </p>
+                </div>
               ) : (
-                <p className="text-center text-gray-500 w-full text-lg font-inter">Please select a chat to start</p>
-              )}
+                <div className="flex flex-col w-full">
+                  {activeChat.messages.map((message, index) => (
+                    <div 
+                      key={message.id} 
+                      className={`w-full py-6 ${
+                        message.text.includes('SELECT') || message.text.includes('INSERT') || message.text.includes('UPDATE') || message.text.includes('DELETE') 
+                          ? 'bg-gray-50' 
+                          : 'bg-white'
+                      }`}
+                    >
+                      <div className="max-w-3xl mx-auto px-4">
+                        <div className={`flex items-start space-x-4 ${
+                          !(message.text.includes('SELECT') || message.text.includes('INSERT') || message.text.includes('UPDATE') || message.text.includes('DELETE')) 
+                            ? 'flex-row-reverse space-x-reverse' 
+                            : ''
+                        }`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            !(message.text.includes('SELECT') || message.text.includes('INSERT') || message.text.includes('UPDATE') || message.text.includes('DELETE')) 
+                              ? 'bg-[#5942E9]' 
+                              : 'bg-gray-300'
+                          }`}>
+                            {!(message.text.includes('SELECT') || message.text.includes('INSERT') || message.text.includes('UPDATE') || message.text.includes('DELETE')) ? (
+                              <FontAwesomeIcon icon={faUser} className="text-white" />
+                            ) : (
+                              <FontAwesomeIcon icon={faRobot} className="text-white" />
+                            )}
+                          </div>
+                          <div className={`flex-1 space-y-2 ${
+                            !(message.text.includes('SELECT') || message.text.includes('INSERT') || message.text.includes('UPDATE') || message.text.includes('DELETE')) 
+                              ? 'text-right' 
+                              : ''
+                          }`}>
+                            <div className="text-sm font-sora text-gray-500">
+                              {!(message.text.includes('SELECT') || message.text.includes('INSERT') || message.text.includes('UPDATE') || message.text.includes('DELETE')) 
+                                ? 'You' 
+                                : 'VoxAi SQL'}
+                            </div>
+                            <div className={`prose prose-sm max-w-none ${
+                              !(message.text.includes('SELECT') || message.text.includes('INSERT') || message.text.includes('UPDATE') || message.text.includes('DELETE')) 
+                                ? 'text-gray-800' 
+                                : 'text-gray-700'
+                            } font-inter leading-relaxed`}>
+                              {message.text}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full space-y-4">
+                <h2 className="text-2xl font-sora text-gray-700">Select a Chat</h2>
+                <p className="text-gray-500 font-inter text-center max-w-md">
+                  Choose a chat from the sidebar or create a new one to start a conversation.
+                </p>
+              </div>
+            )}
           </div>
         </motion.div>
 
-        <div className="w-full p-4">
-          <form onSubmit={handleSendMessage} className="w-full flex items-center p-2 bg-white shadow-md rounded-lg">
-            <button type="button" className="relative p-2" onClick={toggleRecording}>
-              {isRecording && (
-                <div className="absolute -top-20 -right-10 ml-5">
-                  <Player
-                    autoplay
-                    loop
-                    src={recordingAnimation}
-                    style={{ height: 100, width: 100 }}
-                  />
-                </div>
-              )}
-              <FontAwesomeIcon icon={faMicrophone} color={isRecording ? 'red' : 'black'} size="lg" />
-            </button>
-            <textarea
-                className={`flex-grow p-3 border-none focus:outline-none mx-2 resize-none font-inter ${
-                  isTranscribing ? 'text-gray-400 animate-pulse' : 'text-black'
-                }`}
-                value={isTranscribing ? 'Transcribing...' : input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  autoResize(e.target);
-                }}
-                placeholder="Type a message..."
-                disabled={!activeChat || isTranscribing || isSending}
-                rows={1} 
-              />
-           <button
-              type="submit"
-              className={`p-2 ml-2 ${isSending ? 'cursor-not-allowed' : ''}`}
-              disabled={isSending || !input.trim()}
-            >
-              {isSending ? (
-                <FontAwesomeIcon icon={faSpinner} spin className="text-gray-500" />
-              ) : (
-                <FontAwesomeIcon icon={faChartLine} size="lg" className="text-gray-600" />
-              )}
-            </button>
-
-          </form>
+        {/* Input Area */}
+        <div className="w-full bg-white px-4 py-4">
+          <div className="max-w-3xl mx-auto">
+            <form onSubmit={handleSendMessage} className="w-full">
+              <div className="flex items-center space-x-3 bg-gray-50 rounded-xl transition-colors duration-200">
+                <button 
+                  type="button" 
+                  className="relative p-3 text-gray-400 hover:text-gray-600 transition-colors" 
+                  onClick={toggleRecording}
+                >
+                  {isRecording && (
+                    <div className="absolute -top-24 left-1/2 -translate-x-1/2">
+                      <Player
+                        autoplay
+                        loop
+                        src={recordingAnimation}
+                        style={{ height: '100px', width: '100px' }}
+                      />
+                    </div>
+                  )}
+                  <FontAwesomeIcon icon={faMicrophone} color={isRecording ? '#5942E9' : 'currentColor'} size="lg" />
+                </button>
+                <textarea
+                  className={`flex-grow py-3 px-2 bg-transparent focus:outline-none resize-none font-inter text-gray-800 placeholder-gray-400 min-h-[24px] max-h-[200px] ${
+                    isTranscribing ? 'text-gray-400 animate-pulse' : ''
+                  }`}
+                  value={isTranscribing ? 'Transcribing...' : input}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    autoResize(e.target);
+                  }}
+                  placeholder="Type a message..."
+                  disabled={!activeChat || isTranscribing || isSending}
+                  rows={1}
+                />
+                <button
+                  type="submit"
+                  className={`p-3 text-gray-400 hover:text-[#5942E9] transition-colors ${
+                    isSending ? 'cursor-not-allowed opacity-50' : ''
+                  }`}
+                  disabled={isSending || !input.trim()}
+                >
+                  {isSending ? (
+                    <FontAwesomeIcon icon={faSpinner} spin className="text-gray-400" />
+                  ) : (
+                    <FontAwesomeIcon icon={faPaperPlane} size="lg" />
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
       {showDBModal && (
@@ -577,12 +644,15 @@ export default function ChatsPage() {
 
 function ChatHeader() {
   return (
-    <div className="flex justify-between items-center mb-4 w-full">
-      <Link href="/" passHref>
-
-        <Image src="/assets/images/logo.png" alt="Logo" width={150} height={50} className="cursor-pointer" />
-      </Link>
-      <UserProfile />
+    <div className="flex justify-between items-center w-full">
+      <div className="pl-2">
+        <Link href="/" passHref>
+          <Image src="/assets/images/logo.png" alt="Logo" width={120} height={40} className="cursor-pointer" />
+        </Link>
+      </div>
+      <div className="pr-2">
+        <UserProfile />
+      </div>
     </div>
   );
 }
