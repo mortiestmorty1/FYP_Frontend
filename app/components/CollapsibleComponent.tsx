@@ -5,8 +5,8 @@ import { faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons
 interface CollapsibleComponentProps {
   title: string;
   children: React.ReactNode;
-  onToggleCollapse: (isCollapsed: boolean) => void; // onToggleCollapse is required
-  titleStyle?: React.CSSProperties; // Add titleStyle prop to customize title appearance
+  onToggleCollapse: (isCollapsed: boolean) => void; 
+  titleStyle?: React.CSSProperties;
 }
 
 const CollapsibleComponent: React.FC<CollapsibleComponentProps> = ({
@@ -20,7 +20,7 @@ const CollapsibleComponent: React.FC<CollapsibleComponentProps> = ({
   const handleToggleCollapse = () => {
     const newCollapsedState = !isCollapsed;
     setIsCollapsed(newCollapsedState);
-    onToggleCollapse(newCollapsedState); // Pass the collapsed state to parent
+    onToggleCollapse(newCollapsedState); 
   };
 
   return (
@@ -29,7 +29,7 @@ const CollapsibleComponent: React.FC<CollapsibleComponentProps> = ({
         className="p-4 bg-white rounded-t-lg shadow-md flex justify-between items-center cursor-pointer"
         onClick={handleToggleCollapse}
       >
-        {/* Apply custom style to the title */}
+       
         <h3 className="font-bold" style={titleStyle}>
           {title}
         </h3>
@@ -41,7 +41,7 @@ const CollapsibleComponent: React.FC<CollapsibleComponentProps> = ({
       {!isCollapsed && (
         <div
           className="max-h-64 overflow-y-auto p-4 bg-gray-50 rounded-b-lg"
-          style={{ scrollbarWidth: 'thin', scrollbarColor: '#ccc #f5f5f5' }} // Customize scrollbars
+          style={{ scrollbarWidth: 'thin', scrollbarColor: '#ccc #f5f5f5' }} 
         >
           {children}
         </div>

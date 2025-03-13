@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import CollapsibleComponent from '../components/CollapsibleComponent';
 import UserProfile from '../components/UserProfile';
-import DBIntegrationModal from '../components/page'; 
+import DBIntegrationModal from '../components/DBIntegrationModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import recordingAnimation from '/Users/shoaibahmed/Desktop/final-year/Final_year_project/frontend/public/assets/animations/recording.json';
 
@@ -25,7 +25,9 @@ interface Message {
   id: number;
   text: string;
   createdAt: string;
-  
+  isQueryResult?: boolean;
+  queryResults?: any[];
+  _id?: string;
 }
 
 interface Chat {
@@ -41,7 +43,12 @@ interface CategorizedChats {
   older: Chat[];
 }
 
-const categorizeChats = (chats: Chat[]): CategorizedChats => {
+const categorizeChats = (chats: Chat[] | null | undefined): CategorizedChats => {
+  if (!Array.isArray(chats)) {
+    console.error("❌ categorizeChats received invalid data:", chats);
+    return { today: [], yesterday: [], previous7Days: [], older: [] };
+  }
+
   const today: Chat[] = [];
   const yesterday: Chat[] = [];
   const previous7Days: Chat[] = [];
@@ -56,23 +63,16 @@ const categorizeChats = (chats: Chat[]): CategorizedChats => {
     } else if (isYesterday(lastMessageDate)) {
       yesterday.push(chat);
     } else if (isThisWeek(lastMessageDate)) {
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0); 
-      const daysDiff = (startOfToday.getTime() - lastMessageDate.getTime()) / (1000 * 60 * 60 * 24);
-
-      if (daysDiff > 1 && daysDiff <= 7) {
-        previous7Days.push(chat);
-      }
+      previous7Days.push(chat);
     } else {
       older.push(chat);
     }
   });
 
-  
   const sortByDateDesc = (a: Chat, b: Chat) => {
     const dateA = new Date(a.messages[a.messages.length - 1].createdAt).getTime();
     const dateB = new Date(b.messages[b.messages.length - 1].createdAt).getTime();
-    return dateB - dateA; 
+    return dateB - dateA;
   };
 
   return {
@@ -116,6 +116,7 @@ export default function ChatsPage() {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [connectedDbId, setConnectedDbId] = useState<string | null>(null);
   
 
   useEffect(() => {
@@ -144,7 +145,30 @@ export default function ChatsPage() {
 
     fetchChats();
   }, [router]);
- 
+
+  useEffect(() => {
+    const fetchActiveDatabase = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get('http://localhost:3001/database/active', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.data.activeDatabase) {
+          setConnectedDbId(response.data.activeDatabase._id);
+        } else {
+          setConnectedDbId(null);
+        }
+      } catch (error) {
+        console.error('No active database found');
+        setConnectedDbId(null);
+      }
+    };
+    fetchActiveDatabase();
+  }, []);
+
+  const handleDatabaseConnectionChange = (dbId: string | null) => {
+    setConnectedDbId(dbId);
+  };
 
   const recordingOptions = {
     loop: true,
@@ -224,26 +248,49 @@ export default function ChatsPage() {
             setIsTranscribing(true);
   
             const formData = new FormData();
-            formData.append("voiceFile", finalizedBlob, "audio.webm");
+            // Convert the blob to a file with a proper name and type
+            const audioFile = new File([finalizedBlob], "audio.webm", { type: "audio/webm" });
+            formData.append("file", audioFile);  // Changed from "voiceFile" to "file" to match Flask API
   
-            const token = localStorage.getItem("token");
-            const response = await axios.post("http://localhost:3001/voice-to-text/upload", formData, {
+            console.log("Sending request to server...");
+            const response = await axios.post("http://localhost:5001/transcribe", formData, {
               headers: {
-                Authorization: `Bearer ${token}`,
                 "Content-Type": "multipart/form-data",
+                "Accept": "application/json",
               },
+              onUploadProgress: (progressEvent) => {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total!);
+                console.log(`Upload progress: ${percentCompleted}%`);
+              },
+              timeout: 30000, // 30 second timeout
             });
+
+            console.log("Server response:", response.data);
   
-            const rawTranscription = response.data?.data?.transcription;
-            if (rawTranscription) {
-              const meaningfulText = rawTranscription.replace(/\[.*?\]\s*/g, "").trim();
+            if (response.data && response.data.transcription) {
+              const meaningfulText = response.data.transcription.replace(/\[.*?\]\s*/g, "").trim();
               setInput(meaningfulText); 
             } else {
-              alert("Transcription failed. Please try again.");
+              console.error("Invalid response format:", response.data);
+              alert("Transcription failed: Invalid response format");
             }
           } catch (error) {
             console.error("Error uploading audio:", error);
-            alert("Failed to upload audio.");
+            if (axios.isAxiosError(error)) {
+              if (error.code === 'ERR_NETWORK') {
+                console.error("Network error - Make sure the Whisper API server is running on port 5001");
+                alert("Could not connect to the transcription service. Please make sure the service is running.");
+              } else {
+                console.error("Axios error details:", {
+                  status: error.response?.status,
+                  data: error.response?.data,
+                  headers: error.response?.headers
+                });
+                alert(`Failed to upload audio: ${error.response?.data?.message || error.message}`);
+              }
+            } else {
+              alert("Failed to upload audio. Please try again.");
+            }
           } finally {
             setIsTranscribing(false);
           }
@@ -284,7 +331,7 @@ export default function ChatsPage() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() === '') return;
-  
+
     const token = localStorage.getItem('token');
     if (!token) {
       router.push('/login');
@@ -293,7 +340,7 @@ export default function ChatsPage() {
 
     let chatId = activeChatId;
     setIsSending(true);
-  
+
     try {
       if (!chatId) {
         const createChatResponse = await axios.post(
@@ -301,74 +348,120 @@ export default function ChatsPage() {
           { title: 'New Chat', messages: [] },
           { headers: { Authorization: `Bearer ${token}` } }
         );
-  
+
         const newChat = createChatResponse.data.chat;
-        const updatedChats = [...chats, { ...newChat, isTitleLoading: true }];
-        setChats(updatedChats);
-        setCategorizedChats(categorizeChats(updatedChats));
+        setChats((prevChats) => {
+          const updatedChats = Array.isArray(prevChats) ? [...prevChats, { ...newChat, isTitleLoading: true }] : [newChat];
+          setCategorizedChats(categorizeChats(updatedChats));
+          return updatedChats;
+        });
         setActiveChatId(newChat._id);
         chatId = newChat._id;
       }
-  
-      // Set loading state before sending message
-      const updatedChats = chats.map((chat) =>
-        chat._id === chatId ? { ...chat, isTitleLoading: true } : chat
-      );
-      setChats(updatedChats);
-      setCategorizedChats(categorizeChats(updatedChats));
-  
-      const messageResponse = await axios.post(
-        'http://localhost:3001/chat/message',
-        { chatId, text: input },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-  
-      const updatedChat = messageResponse.data.chat;
-  
-      // Update chats with new message and maintain loading state if it's the first message
-      const chatsWithNewMessage = chats.map((chat) =>
-        chat._id === chatId ? { 
-          ...chat, 
-          messages: updatedChat.messages, 
-          isTitleLoading: updatedChat.messages.length === 1 
-        } : chat
-      );
-      setChats(chatsWithNewMessage);
-      setCategorizedChats(categorizeChats(chatsWithNewMessage));
-  
-      // If this is the first message, wait for title generation
-      if (updatedChat.messages.length === 1) {
-        // Wait for a short time to show the loading state
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Update the chat with the title from the response
-        const finalChats = chatsWithNewMessage.map((chat) =>
-          chat._id === chatId ? { 
-            ...chat, 
-            title: updatedChat.title,
-            isTitleLoading: false 
-          } : chat
-        );
-        setChats(finalChats);
-        setCategorizedChats(categorizeChats(finalChats));
+
+      const isSQLQuery = /\b(SELECT|INSERT|UPDATE|DELETE)\b/i.test(input);
+
+      if (isSQLQuery) {
+        console.log('📌 SQL Query detected:', input);
+        console.log('🔗 Connected DB ID:', connectedDbId);
+
+        if (!connectedDbId) {
+          const errorMessage = {
+            id: Date.now(),
+            text: '❌ Please connect to a database first using the database button in the sidebar.',
+            createdAt: new Date().toISOString(),
+            isQueryResult: true
+          };
+
+          setChats((prevChats) => {
+            const updatedChats = Array.isArray(prevChats) ? 
+              prevChats.map((chat) =>
+                chat._id === chatId ? { ...chat, messages: [...chat.messages, errorMessage] } : chat
+              ) : [];
+            setCategorizedChats(categorizeChats(updatedChats));
+            return updatedChats;
+          });
+          return;
+        }
+
+        try {
+          console.log('🚀 Executing query on database:', connectedDbId);
+
+          const queryResponse = await axios.post(
+            `http://localhost:3001/database/query/${connectedDbId}`,
+            { query: input.trim(), chatId },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+
+          console.log('✅ Query response:', queryResponse.data);
+
+          if (queryResponse.data.success && queryResponse.data.chat) {
+            // Create a response message that includes both the success message and query results
+            const responseMessage = {
+              id: Date.now(),
+              text: queryResponse.data.message || 'Query executed successfully',
+              createdAt: new Date().toISOString(),
+              isQueryResult: true,
+              queryResults: queryResponse.data.queryResults
+            };
+
+            setChats((prevChats) => {
+              const updatedChats = Array.isArray(prevChats) ? 
+                prevChats.map((chat) =>
+                  chat._id === queryResponse.data.chat._id ? {
+                    ...queryResponse.data.chat,
+                    messages: [...queryResponse.data.chat.messages, responseMessage]
+                  } : chat
+                ) : [queryResponse.data.chat];
+              setCategorizedChats(categorizeChats(updatedChats));
+              return updatedChats;
+            });
+            setInput('');
+          } else {
+            console.error("⚠️ Query execution failed:", queryResponse.data);
+            throw new Error(queryResponse.data.message || 'Query execution failed');
+          }
+        } catch (error) {
+          console.error('❌ Error executing query:', error);
+          const errorMessage = {
+            id: Date.now(),
+            text: axios.isAxiosError(error) ? 
+              `❌ Error executing query: ${error.response?.data?.message || error.message}` : 
+              '❌ Error executing query',
+            createdAt: new Date().toISOString(),
+            isQueryResult: true
+          };
+
+          setChats((prevChats) => {
+            const updatedChats = Array.isArray(prevChats) ? 
+              prevChats.map((chat) =>
+                chat._id === chatId ? { ...chat, messages: [...chat.messages, errorMessage] } : chat
+              ) : [];
+            setCategorizedChats(categorizeChats(updatedChats));
+            return updatedChats;
+          });
+        }
       } else {
-        // If not the first message, remove loading state
-        const finalChats = chatsWithNewMessage.map((chat) =>
-          chat._id === chatId ? { ...chat, isTitleLoading: false } : chat
+        // Handle normal text messages
+        const messageResponse = await axios.post(
+          'http://localhost:3001/chat/message',
+          { chatId, text: input },
+          { headers: { Authorization: `Bearer ${token}` } }
         );
-        setChats(finalChats);
-        setCategorizedChats(categorizeChats(finalChats));
+
+        setChats((prevChats) => {
+          const updatedChats = Array.isArray(prevChats) ? 
+            prevChats.map((chat) =>
+              chat._id === chatId ? { ...messageResponse.data.chat } : chat
+            ) : [messageResponse.data.chat];
+          setCategorizedChats(categorizeChats(updatedChats));
+          return updatedChats;
+        });
       }
-  
+
       setInput('');
     } catch (error) {
-      console.error('Error sending message:', error);
-      // If there's an error, make sure to remove loading state
-      const errorChats = chats.map((chat) =>
-        chat._id === chatId ? { ...chat, isTitleLoading: false } : chat
-      );
-      setChats(errorChats);
-      setCategorizedChats(categorizeChats(errorChats));
+      console.error('❌ Error sending message:', error);
     } finally {
       setIsSending(false);
     }
@@ -498,72 +591,95 @@ export default function ChatsPage() {
       </motion.div>
 
       {/* Main Content */}
-      <div className="flex-grow h-full flex flex-col">
+      <div className="flex-grow h-full flex flex-col overflow-hidden">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="flex-grow flex flex-col h-full"
+          className="flex-grow flex flex-col h-full overflow-hidden"
         >
-          <div className="px-6 py-3">
+          <div className="px-6 py-3 flex-shrink-0">
             <div className="max-w-[1200px] w-full mx-auto px-4">
               <ChatHeader />
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
             {activeChat ? (
               activeChat.messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full space-y-4">
                   <h2 className="text-2xl font-sora text-gray-700">Welcome to VoxAi SQL</h2>
                   <p className="text-gray-500 font-inter text-center max-w-md">
-                    Start a conversation by typing your message or using voice input. I'll help you convert your natural language into SQL queries.
+                    Start a conversation by typing your message or using voice input. I'll help you convert your natural language into SQL queries and provide you with the results.
                   </p>
                 </div>
               ) : (
-                <div className="flex flex-col w-full">
+                <div className="flex flex-col w-full pb-4">
                   {activeChat.messages.map((message, index) => (
                     <div 
                       key={message.id} 
                       className={`w-full py-6 ${
-                        message.text.includes('SELECT') || message.text.includes('INSERT') || message.text.includes('UPDATE') || message.text.includes('DELETE') 
-                          ? 'bg-gray-50' 
-                          : 'bg-white'
+                        message.isQueryResult ? 'bg-white border-y border-gray-100' : 'bg-white'
                       }`}
                     >
                       <div className="max-w-3xl mx-auto px-4">
                         <div className={`flex items-start space-x-4 ${
-                          !(message.text.includes('SELECT') || message.text.includes('INSERT') || message.text.includes('UPDATE') || message.text.includes('DELETE')) 
-                            ? 'flex-row-reverse space-x-reverse' 
-                            : ''
+                          message.isQueryResult ? '' : 'flex-row-reverse space-x-reverse'
                         }`}>
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            !(message.text.includes('SELECT') || message.text.includes('INSERT') || message.text.includes('UPDATE') || message.text.includes('DELETE')) 
-                              ? 'bg-[#5942E9]' 
-                              : 'bg-gray-300'
+                            message.isQueryResult ? 'bg-[#5942E9]' : 'bg-gray-300'
                           }`}>
-                            {!(message.text.includes('SELECT') || message.text.includes('INSERT') || message.text.includes('UPDATE') || message.text.includes('DELETE')) ? (
-                              <FontAwesomeIcon icon={faUser} className="text-white" />
-                            ) : (
+                            {message.isQueryResult ? (
                               <FontAwesomeIcon icon={faRobot} className="text-white" />
+                            ) : (
+                              <FontAwesomeIcon icon={faUser} className="text-white" />
                             )}
                           </div>
                           <div className={`flex-1 space-y-2 ${
-                            !(message.text.includes('SELECT') || message.text.includes('INSERT') || message.text.includes('UPDATE') || message.text.includes('DELETE')) 
-                              ? 'text-right' 
-                              : ''
+                            message.isQueryResult ? '' : 'text-right'
                           }`}>
                             <div className="text-sm font-sora text-gray-500">
-                              {!(message.text.includes('SELECT') || message.text.includes('INSERT') || message.text.includes('UPDATE') || message.text.includes('DELETE')) 
-                                ? 'You' 
-                                : 'VoxAi SQL'}
+                              {message.isQueryResult ? 'VoxAi SQL' : 'You'}
                             </div>
                             <div className={`prose prose-sm max-w-none ${
-                              !(message.text.includes('SELECT') || message.text.includes('INSERT') || message.text.includes('UPDATE') || message.text.includes('DELETE')) 
-                                ? 'text-gray-800' 
-                                : 'text-gray-700'
+                              message.isQueryResult ? 'text-gray-700' : 'text-gray-800'
                             } font-inter leading-relaxed`}>
                               {message.text}
                             </div>
+                            {message.isQueryResult && message.queryResults && message.queryResults.length > 0 && (
+                              <div className="mt-4 bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
+                                <div className="overflow-x-auto">
+                                  <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gradient-to-r from-[#5942E9] to-[#42DFE9]">
+                                      <tr>
+                                        {Object.keys(message.queryResults[0]).map((col, index) => (
+                                          <th key={index} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                                            {col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                          </th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                      {message.queryResults.map((row, rowIndex) => (
+                                        <tr key={rowIndex} className="hover:bg-gray-50 transition-colors duration-150">
+                                          {Object.values(row).map((value, colIndex) => (
+                                            <td key={colIndex} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                              {typeof value === 'string' && value.includes('T') ? 
+                                                new Date(value).toLocaleString() : 
+                                                String(value)}
+                                            </td>
+                                          ))}
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                                <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
+                                  <p className="text-xs text-gray-500">
+                                    Showing {message.queryResults.length} results
+                                  </p>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -636,7 +752,11 @@ export default function ChatsPage() {
         </div>
       </div>
       {showDBModal && (
-        <DBIntegrationModal showModal={showDBModal} closeModal={() => setShowDBModal(false)} />
+        <DBIntegrationModal 
+          showModal={showDBModal} 
+          closeModal={() => setShowDBModal(false)}
+          onConnectionChange={handleDatabaseConnectionChange}
+        />
       )}
     </div>
   );
